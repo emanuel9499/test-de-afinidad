@@ -10,25 +10,23 @@ app.use(cors());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Servir frontend desde public
+// ⚡ Servir frontend desde la carpeta public
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// ⚠️ PEGÁ ACÁ TU CLIENT ID DE MAL
+// ⚠️ PEGÁ TU CLIENT ID DE MAL
 const CLIENT_ID = "b35acc338b1fcf0fab6188e73e5cb797";
 
 // ---------------- MAL ----------------
 app.get("/api/mal/:username", async (req, res) => {
   try {
     const username = req.params.username;
+
     const listRes = await axios.get(
       `https://api.myanimelist.net/v2/users/${username}/animelist`,
-      {
-        headers: { "X-MAL-CLIENT-ID": CLIENT_ID },
-        params: { limit: 500 }
-      }
+      { headers: { "X-MAL-CLIENT-ID": CLIENT_ID }, params: { limit: 500 } }
     );
 
     const animePromises = listRes.data.data.map(item =>
@@ -49,8 +47,7 @@ app.get("/api/mal/:username", async (req, res) => {
     res.json(animes);
 
   } catch (error) {
-    console.error("ERROR REAL DE MAL:");
-    console.error(error.response?.data || error.message);
+    console.error("ERROR MAL:", error.response?.data || error.message);
     res.status(500).json(error.response?.data || { error: "Error desconocido" });
   }
 });
@@ -65,11 +62,7 @@ app.get("/api/anilist/:username", async (req, res) => {
         MediaListCollection(userName: $username, type: ANIME) {
           lists {
             entries {
-              media {
-                title { romaji }
-                genres
-                coverImage { large }
-              }
+              media { title { romaji } genres coverImage { large } }
               status
             }
           }
@@ -83,15 +76,12 @@ app.get("/api/anilist/:username", async (req, res) => {
       { headers: { "Content-Type": "application/json" } }
     );
 
-    if (!response.data.data || !response.data.data.MediaListCollection) {
-      console.warn("Usuario no encontrado en AniList:", username);
-      return res.json([]);
-    }
+    if (!response.data.data || !response.data.data.MediaListCollection) return res.json([]);
 
     const animes = [];
     response.data.data.MediaListCollection.lists.forEach(list => {
       list.entries
-        .filter(entry => entry.status && ["CURRENT", "COMPLETED"].includes(entry.status))
+        .filter(e => e.status && ["CURRENT", "COMPLETED"].includes(e.status))
         .forEach(entry => {
           animes.push({
             title: entry.media.title.romaji,
@@ -104,14 +94,11 @@ app.get("/api/anilist/:username", async (req, res) => {
     res.json(animes);
 
   } catch (error) {
-    console.error("ERROR REAL DE AniList:");
-    console.error(error.response?.data || error.message);
+    console.error("ERROR AniList:", error.response?.data || error.message);
     res.status(500).json(error.response?.data || { error: "Error desconocido" });
   }
 });
 
-// Puerto dinámico para Render
+// ⚡ Puerto dinámico para Render
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Backend corriendo en http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Backend corriendo en http://localhost:${PORT}`));
