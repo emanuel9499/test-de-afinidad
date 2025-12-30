@@ -43,13 +43,13 @@ window.loadBoth = async function() {
 }
 
 async function fetchMAL(username) {
-  const res = await fetch(`/mal/${username}`);
+  const res = await fetch(`/api/mal/${username}`);
   if (!res.ok) throw new Error("Error consultando backend MAL");
   return await res.json();
 }
 
 async function fetchAniList(username) {
-  const res = await fetch(`/anilist/${username}`);
+  const res = await fetch(`/api/anilist/${username}`);
   if (!res.ok) throw new Error("Error consultando backend AniList");
   return await res.json();
 }
@@ -101,7 +101,6 @@ function showResults(affinity){
   output.innerHTML="<h3>Resultado del test</h3><div class='podio'></div>";
   const podioDiv=output.querySelector(".podio");
 
-  // Ordenar por percent
   const sortedTeams = Object.entries(affinity).sort((a,b)=>b[1].percent - a[1].percent);
 
   sortedTeams.forEach(([teamKey, data])=>{
@@ -148,7 +147,7 @@ function showGenres(teamKey){
   });
 }
 
-// Toggle animes por género (rejilla con imagen + nombre)
+// Toggle animes por género
 window.toggleAnimes = function(teamKey, genre){
   const div = document.getElementById(`animes-${teamKey}-${genre}`);
   if(div.style.display === "none"){
