@@ -16,24 +16,14 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// ⚠️ PEGÁ ACÁ TU CLIENT ID DE MAL
+// ⚠️ PEGÁ TU CLIENT ID DE MAL
 const CLIENT_ID = "b35acc338b1fcf0fab6188e73e5cb797";
 
-// ---------------- CACHE ----------------
-const malCache = {};      // { username: { data: [...], expires: timestamp } }
-const anilistCache = {};  // { username: { data: [...], expires: timestamp } }
-const CACHE_TIME = 10 * 60 * 1000; // 10 minutos
-
 // ---------------- MAL ----------------
-app.get("/mal/:username", async (req, res) => {
-  const username = req.params.username;
-
-  // Revisar cache
-  if (malCache[username] && malCache[username].expires > Date.now()) {
-    return res.json(malCache[username].data);
-  }
-
+app.get("/api/mal/:username", async (req, res) => {
   try {
+    const username = req.params.username;
+
     const listRes = await axios.get(
       `https://api.myanimelist.net/v2/users/${username}/animelist`,
       { headers: { "X-MAL-CLIENT-ID": CLIENT_ID }, params: { limit: 500 } }
@@ -54,41 +44,25 @@ app.get("/mal/:username", async (req, res) => {
       image: r.data.main_picture?.medium || ""
     }));
 
-    // Guardar en cache
-    malCache[username] = { data: animes, expires: Date.now() + CACHE_TIME };
-
     res.json(animes);
 
   } catch (error) {
-    if (error.response?.status === 429) {
-      console.error("Se alcanzó el límite de requests a MAL");
-      return res.status(429).json({ error: "Demasiadas solicitudes a MAL. Intentá más tarde." });
-    }
-    console.error("ERROR REAL DE MAL:", error.response?.data || error.message);
-    res.status(500).json({ error: "No se pudieron cargar datos de MAL." });
+    console.error("ERROR MAL:", error.response?.data || error.message);
+    res.status(500).json(error.response?.data || { error: "Error desconocido" });
   }
 });
 
 // ---------------- ANILIST ----------------
-app.get("/anilist/:username", async (req, res) => {
-  const username = req.params.username;
-
-  // Revisar cache
-  if (anilistCache[username] && anilistCache[username].expires > Date.now()) {
-    return res.json(anilistCache[username].data);
-  }
-
+app.get("/api/anilist/:username", async (req, res) => {
   try {
+    const username = req.params.username;
+
     const query = `
       query ($username: String) {
         MediaListCollection(userName: $username, type: ANIME) {
           lists {
             entries {
-              media {
-                title { romaji }
-                genres
-                coverImage { large }
-              }
+              media { title { romaji } genres coverImage { large } }
               status
             }
           }
@@ -102,15 +76,12 @@ app.get("/anilist/:username", async (req, res) => {
       { headers: { "Content-Type": "application/json" } }
     );
 
-    if (!response.data.data || !response.data.data.MediaListCollection) {
-      console.warn("Usuario no encontrado en AniList:", username);
-      return res.json([]);
-    }
+    if (!response.data.data || !response.data.data.MediaListCollection) return res.json([]);
 
     const animes = [];
     response.data.data.MediaListCollection.lists.forEach(list => {
       list.entries
-        .filter(entry => entry.status && ["CURRENT", "COMPLETED"].includes(entry.status))
+        .filter(e => e.status && ["CURRENT", "COMPLETED"].includes(e.status))
         .forEach(entry => {
           animes.push({
             title: entry.media.title.romaji,
@@ -120,19 +91,14 @@ app.get("/anilist/:username", async (req, res) => {
         });
     });
 
-    // Guardar en cache
-    anilistCache[username] = { data: animes, expires: Date.now() + CACHE_TIME };
-
     res.json(animes);
 
   } catch (error) {
-    console.error("ERROR REAL DE AniList:", error.response?.data || error.message);
-    res.status(500).json({ error: "No se pudieron cargar datos de AniList." });
+    console.error("ERROR AniList:", error.response?.data || error.message);
+    res.status(500).json(error.response?.data || { error: "Error desconocido" });
   }
 });
 
 // ⚡ Puerto dinámico para Render
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Backend corriendo en http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Backend corriendo en http://localhost:${PORT}`));
