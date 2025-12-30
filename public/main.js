@@ -43,13 +43,13 @@ window.loadBoth = async function() {
 }
 
 async function fetchMAL(username) {
-  const res = await fetch(`http://localhost:3000/mal/${username}`);
+  const res = await fetch(`/mal/${username}`);
   if (!res.ok) throw new Error("Error consultando backend MAL");
   return await res.json();
 }
 
 async function fetchAniList(username) {
-  const res = await fetch(`http://localhost:3000/anilist/${username}`);
+  const res = await fetch(`/anilist/${username}`);
   if (!res.ok) throw new Error("Error consultando backend AniList");
   return await res.json();
 }
