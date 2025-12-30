@@ -12,9 +12,9 @@ const GENRE_MAP = {
 function normalizeGenre(g) { return GENRE_MAP[g] || g; }
 
 const TEAMS = {
-  yuyo: { name: "Team Yuyo", likes: ["Romance", "Comedy", "Slice of Life", "Ecchi", "CGCDT", "Mecha", "Music", "Shonen"] },
-  ema:  { name: "Team Ema", likes: ["Mystery", "Sports", "Suspense", "Drama", "Sci-Fi", "Horror", "Mecha", "Music", "Shonen"] },
-  eze:  { name: "Team Eze", likes: ["Isekai", "Adventure", "Shonen", "Fantasia"] }
+  yuyo: { name: "Team Yuyo", likes: ["Romance", "Comedy", "Slice of Life", "Ecchi", "CGCDT", "Mecha", "Music", "Action"] },
+  ema:  { name: "Team Ema", likes: ["Mystery", "Sports", "Suspense", "Drama", "Sci-Fi", "Horror", "Mecha", "Music", "Action"] },
+  eze:  { name: "Team Eze", likes: ["Isekai", "Adventure", "Action", "Fantasia"] }
 };
 
 // Cache global para los detalles
