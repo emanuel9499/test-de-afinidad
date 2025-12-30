@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Test de Afinidad de Anime</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #ff9800;
+      margin-bottom: 10px;
+    }
+
+    input[type="text"], select {
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      width: 250px;
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 10px 15px;
+      border-radius: 5px;
+      border: none;
+      background-color: #ff9800;
+      color: #121212;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #e68900;
+    }
+
+    #output {
+      margin-top: 30px;
+      width: 90%;
+      max-width: 700px;
+      background-color: #1e1e1e;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    }
+
+    .podio {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .team {
+      width: 80%;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .team-name {
+      font-weight: bold;
+      font-size: 1.2em;
+      margin-bottom: 5px;
+    }
+
+    .bar-container {
+      background-color: #333;
+      border-radius: 5px;
+      overflow: hidden;
+      height: 25px;
+      margin-bottom: 5px;
+    }
+
+    .bar {
+      height: 100%;
+      background-color: #ff9800;
+      width: 0%;
+      transition: width 1s ease-in-out;
+    }
+
+    .genres {
+      margin-left: 20px;
+      margin-top: 5px;
+    }
+
+    .anime-list {
+      margin-left: 20px;
+      margin-top: 3px;
+      font-size: 0.9em;
+    }
+
+    .btn-detail {
+      margin-top: 5px;
+      margin-bottom: 5px;
+      font-size: 0.85em;
+      padding: 3px 7px;
+      border-radius: 5px;
+      background-color: #555;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-detail:hover {
+      background-color: #777;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test de Afinidad de Anime</h1>
+  <div>
+    <input type="text" id="username" placeholder="Ingresá tu username">
+    <select id="platform">
+      <option value="mal">MyAnimeList</option>
+      <option value="anilist">AniList</option>
+    </select>
+    <button onclick="loadBoth()">Calcular afinidad</button>
+  </div>
+  <div id="output"></div>
+
+  <script src="main.js"></script>
+</body>
+</html>
