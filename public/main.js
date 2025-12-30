@@ -5,8 +5,7 @@ const GENRE_MAP = {
   "Psychological": "Suspense",
   "Slice of Life": "Slice of Life",
   "Sci-Fi": "Sci-Fi",
-  "Fantasy": "Fantasia",    // agregamos fantasia
-  "Shounen": "Shonen"       // agregamos shonen
+  "Fantasy": "Fantasia"
 };
 
 function normalizeGenre(g) { return GENRE_MAP[g] || g; }
