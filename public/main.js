@@ -4,15 +4,17 @@ const GENRE_MAP = {
   "Romantic Comedy": "Romance",
   "Psychological": "Suspense",
   "Slice of Life": "Slice of Life",
-  "Sci-Fi": "Sci-Fi"
+  "Sci-Fi": "Sci-Fi",
+  "Fantasy": "Fantasia",    // agregamos fantasia
+  "Shounen": "Shonen"       // agregamos shonen
 };
 
 function normalizeGenre(g) { return GENRE_MAP[g] || g; }
 
 const TEAMS = {
-  yuyo: { name: "Team Yuyo", likes: ["Romance", "Comedy", "Slice of Life", "Ecchi", "CGCDT", "Mecha", "Music"] },
-  ema:  { name: "Team Ema", likes: ["Mystery", "Sports", "Suspense", "Drama", "Sci-Fi", "Horror", "Mecha", "Music"] },
-  eze:  { name: "Team Eze", likes: ["Isekai", "Adventure"] }
+  yuyo: { name: "Team Yuyo", likes: ["Romance", "Comedy", "Slice of Life", "Ecchi", "CGCDT", "Mecha", "Music", "Shonen"] },
+  ema:  { name: "Team Ema", likes: ["Mystery", "Sports", "Suspense", "Drama", "Sci-Fi", "Horror", "Mecha", "Music", "Shonen"] },
+  eze:  { name: "Team Eze", likes: ["Isekai", "Adventure", "Shonen", "Fantasia"] }
 };
 
 // Cache global para los detalles
