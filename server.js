@@ -16,6 +16,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// Para mantener el servidor despierto (pinguear cada 10 min desde cron-job.org o similar)
+app.get("/health", (req, res) => res.send("ok"));
+
 // Client ID de MAL: configurarlo en Render → Environment → MAL_CLIENT_ID
 // (el valor de respaldo se puede borrar una vez configurada la variable)
 const CLIENT_ID = process.env.MAL_CLIENT_ID || "b35acc338b1fcf0fab6188e73e5cb797";
@@ -79,6 +82,7 @@ app.get("/api/mal/:username", rateLimit, async (req, res) => {
         const ls = item.list_status || {};
         animes.push({
           id: n.id,
+          mal_id: n.id,
           title: n.title,
           genres: (n.genres || []).map(g => g.name),
           image: n.main_picture?.medium || n.main_picture?.large || "",
@@ -116,7 +120,7 @@ app.get("/api/anilist/:username", rateLimit, async (req, res) => {
           entries {
             status
             score(format: POINT_10)
-            media { id title { romaji } genres tags { name rank } coverImage { large } }
+            media { id idMal title { romaji } genres tags { name rank } coverImage { large } }
           }
         }
       }
@@ -138,6 +142,7 @@ app.get("/api/anilist/:username", rateLimit, async (req, res) => {
       const tags = (e.media.tags || []).filter(t => AL_TAGS.includes(t.name) && t.rank >= 60).map(t => t.name);
       animes.push({
         id: e.media.id,
+        mal_id: e.media.idMal || null,
         title: e.media.title.romaji,
         genres: [...(e.media.genres || []), ...tags],
         image: e.media.coverImage?.large || "",
