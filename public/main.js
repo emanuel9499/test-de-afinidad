@@ -9,22 +9,35 @@ const GENRE_MAP = {
     'Romantic Comedy': 'Romance',
     'Psychological': 'Suspense',
     'Fantasy': 'Fantasia',
-    'Cute Girls Doing Cute Things': 'CGDCT'   // etiqueta de AniList → mismo nombre que el tema de MAL
+    'Cute Girls Doing Cute Things': 'CGDCT',  // etiqueta de AniList → mismo nombre que el tema de MAL
+    'Thriller': 'Suspense',                   // AniList llama "Thriller" a lo que MAL llama "Suspense"
+    'Idols (Female)': 'Idols',
+    'Idols (Male)': 'Idols',
+    'Team Sports': 'Sports',
+    'Combat Sports': 'Sports'
 };
 const normalizeGenre = g => GENRE_MAP[g] || g;
 
-// core = géneros núcleo (valen CORE_WEIGHT) · extra = también suman (valen 1)
-const CORE_WEIGHT = 2;
+// Cuánto vale cada género para cada team (≥ 2 = género núcleo, marcado con ★)
+// Action se reparte 40% Eze · 30% Yuyo · 30% Ema  →  2 : 1.5 : 1.5
 const TEAMS = {
     yuyo: { name: 'Team Yuyo', color: '#ff6fae', text: '#ffb3d4',
-            core: ['Comedy', 'Romance', 'Slice of Life', 'Ecchi', 'CGDCT'], extra: ['Mecha', 'Music', 'Action'] },
+            weights: { 'Comedy': 2, 'Romance': 2, 'Slice of Life': 2, 'Ecchi': 2, 'CGDCT': 2, 'Harem': 2, 'Action': 1.5,
+                       'Mecha': 1, 'Music': 1, 'Love Polygon': 1, 'School': 1, 'Iyashikei': 1, 'Idols': 1,
+                       'Gourmet': 1, 'Girls Love': 1, 'Otaku Culture': 1 } },
     ema:  { name: 'Team Ema',  color: '#6f9bff', text: '#b5ccff',
-            core: ['Suspense', 'Horror', 'Drama', 'Sports'], extra: ['Mystery', 'Sci-Fi', 'Mecha', 'Music', 'Action'] },
+            weights: { 'Suspense': 2, 'Horror': 2, 'Drama': 2, 'Sports': 2, 'Sci-Fi': 2, 'Mystery': 2, 'Action': 1.5,
+                       'Mecha': 1, 'Music': 1, 'Supernatural': 1, 'Boys Love': 1, 'Detective': 1, 'Gore': 1,
+                       'Survival': 1, 'High Stakes Game': 1, 'Mahou Shoujo': 1, 'Adult Cast': 1 } },
     eze:  { name: 'Team Eze',  color: '#4fdc9c', text: '#a6f0cd',
-            core: ['Adventure', 'Action', 'Fantasia'], extra: ['Isekai'] }
+            weights: { 'Adventure': 2, 'Action': 2, 'Fantasia': 2, 'Isekai': 1 } }
 };
-Object.values(TEAMS).forEach(t => { t.likes = [...t.core, ...t.extra]; });
-const genreWeight = (team, g) => team.core.includes(g) ? CORE_WEIGHT : team.extra.includes(g) ? 1 : 0;
+Object.values(TEAMS).forEach(t => {
+    t.likes = Object.keys(t.weights);
+    t.core = t.likes.filter(g => t.weights[g] >= 2);
+});
+const genreWeight = (team, g) => team.weights[g] || 0;
+const fmtW = w => '×' + String(w).replace('.', ',');
 
 const NO_TEAM_COLOR = '#4a5268';
 const ANIME_PAGE = 24;
@@ -360,17 +373,18 @@ function renderSingle() {
     ${winnerCard(p, 'Tu team es', `<div class="why">${explain(p)}</div>`)}
 
     <div class="stats">
-        <div class="stat"><div class="k">Animes analizados</div><div class="v">${p.animes.length}</div><div class="sub">${p.animes.reduce((x, a) => x + (a.count || 1), 0)} entradas contando temporadas</div></div>
+        <div class="stat"><div class="k">Animes vistos</div><div class="v">${p.animes.length}</div><div class="sub">${p.animes.reduce((x, a) => x + (a.count || 1), 0)} entradas contando temporadas</div></div>
         <div class="stat"><div class="k">Con géneros de algún team</div><div class="v">${matched}</div></div>
         <div class="stat"><div class="k">Géneros distintos</div><div class="v">${genreTotals(p.animes).length}</div></div>
     </div>
 
     ${optionsHTML()}
 
-    <h2 class="section">Ranking de teams <small><span class="core-mark">★</span> = género núcleo (vale x${CORE_WEIGHT})</small></h2>
+    <h2 class="section">Ranking de teams <small>(×N = cuánto vale cada género para ese team)</small></h2>
     <div id="teams">${p.sorted.map(([key, d], i) => teamHTML(key, d, i)).join('')}</div>
 
-    <h2 class="section">Tus géneros más vistos <small>(top 12)</small></h2>
+    <h2 class="section">Tus géneros</h2>
+    <p class="total-line">Viste <b>${p.animes.length}</b> anime${p.animes.length === 1 ? '' : 's'} distintos <span>(${p.animes.reduce((x, a) => x + (a.count || 1), 0)} entradas en tu lista contando temporadas, películas y OVAs)</span></p>
     ${genreBarsHTML(p.animes)}
 </section>`;
     animateBars();
@@ -391,9 +405,9 @@ function teamHTML(key, d, i) {
         <span class="chev">▼</span>
     </button>
     <div class="team-body" hidden>
-        <div class="likes">Núcleo (x${CORE_WEIGHT}): <b>${t.core.map(esc).join(', ')}</b> · También suma: <b>${t.extra.map(esc).join(', ')}</b></div>
+        <div class="likes">Suma: <b>${t.likes.map(g => `${esc(g)} ${fmtW(t.weights[g])}`).join(' · ')}</b></div>
         <div class="chips">
-            ${genres.map(([g, n]) => `<button type="button" class="chip${n ? '' : ' zero'}" data-team="${key}" data-genre="${esc(g)}" ${n ? '' : 'disabled'}>${t.core.includes(g) ? '<span class="core-mark">★</span>' : ''}${esc(g)} <span class="n">${n}</span></button>`).join('')}
+            ${genres.map(([g, n]) => `<button type="button" class="chip${n ? '' : ' zero'}" data-team="${key}" data-genre="${esc(g)}" ${n ? '' : 'disabled'}>${esc(g)} <span class="core-mark">${fmtW(t.weights[g])}</span> <span class="n">${n}</span></button>`).join('')}
         </div>
         <div class="anime-area"></div>
     </div>
@@ -401,13 +415,14 @@ function teamHTML(key, d, i) {
 }
 
 function genreBarsHTML(animes) {
-    const top = genreTotals(animes).slice(0, 12);
+    const top = genreTotals(animes);
     if (!top.length) return '';
     const max = top[0][1];
     const rows = top.map(([g, n]) => {
-        const teams = Object.values(TEAMS).filter(t => t.likes.includes(g));
-        const segs = (teams.length ? teams.map(t => t.color) : [NO_TEAM_COLOR])
-            .map(c => `<i style="flex:1;background:${c}"></i>`).join('');
+        const teams = Object.values(TEAMS).filter(t => t.weights[g]);
+        const segs = teams.length
+            ? teams.map(t => `<i style="flex:${t.weights[g]};background:${t.color}"></i>`).join('')
+            : `<i style="flex:1;background:${NO_TEAM_COLOR}"></i>`;
         return `<div class="gbar"><span class="gname" title="${esc(g)}">${esc(g)}</span>
             <div class="gtrack"><div style="width:${n / max * 100}%;display:flex">${segs}</div></div>
             <span class="gnum">${n}</span></div>`;
@@ -510,7 +525,7 @@ function genreCompareHTML(A, B) {
         .slice(0, 10);
     if (!rows.length) return '';
     const max = Math.max(...rows.flatMap(r => [r[1], r[2]]));
-    const colorOf = g => (Object.values(TEAMS).find(t => t.core.includes(g)) || Object.values(TEAMS).find(t => t.likes.includes(g)))?.color || NO_TEAM_COLOR;
+    const colorOf = g => Object.values(TEAMS).filter(t => t.weights[g]).sort((a, b) => b.weights[g] - a.weights[g])[0]?.color || NO_TEAM_COLOR;
     return `<div class="gcmp">
         <div class="gcmp-head"><span>${esc(A.username)}</span><span>Género</span><span>${esc(B.username)}</span></div>
         ${rows.map(([g, a, b]) => `<div class="gcmp-row">

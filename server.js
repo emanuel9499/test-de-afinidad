@@ -183,7 +183,15 @@ async function malRelations(ids) {
 // Normalización
 // ================================================================
 const AL_STATUS = { CURRENT: "watching", REPEATING: "watching", COMPLETED: "completed", PAUSED: "on_hold", DROPPED: "dropped", PLANNING: "planning" };
-const AL_TAGS = ["Isekai", "Cute Girls Doing Cute Things", "Iyashikei"];   // etiquetas que el test usa como géneros
+// Etiquetas de AniList que el test usa como géneros → nombre equivalente en MAL
+const AL_TAGS = {
+  "Isekai": "Isekai", "Cute Girls Doing Cute Things": "CGDCT", "Iyashikei": "Iyashikei",
+  "Female Harem": "Harem", "Male Harem": "Harem", "Mixed Gender Harem": "Harem",
+  "Love Triangle": "Love Polygon", "School": "School", "Idol": "Idols", "Food": "Gourmet",
+  "Yuri": "Girls Love", "Otaku Culture": "Otaku Culture", "Boys' Love": "Boys Love",
+  "Detective": "Detective", "Gore": "Gore", "Survival": "Survival", "Death Game": "High Stakes Game",
+  "Team Sports": "Sports", "Combat Sports": "Sports", "Adult Cast": "Adult Cast"
+};
 const MEDIA_FIELDS = `id idMal title { romaji english } format startDate { year month day }
   genres tags { name rank } coverImage { large }
   relations { edges { relationType node { id idMal type } } }`;
@@ -191,13 +199,13 @@ const MEDIA_FIELDS = `id idMal title { romaji english } format startDate { year 
 const dateKey = (y, m, d) => y ? `${y}-${String(m || 1).padStart(2, "0")}-${String(d || 1).padStart(2, "0")}` : null;
 
 function normalizeAL(m) {
-  const tags = (m.tags || []).filter(t => AL_TAGS.includes(t.name) && t.rank >= 60).map(t => t.name);
+  const tags = (m.tags || []).filter(t => AL_TAGS[t.name] && t.rank >= 60).map(t => AL_TAGS[t.name]);
   return {
     id: m.id,
     mal_id: m.idMal || null,
     title: m.title?.romaji || m.title?.english || "Sin título",
     title_en: m.title?.english || null,
-    genres: [...(m.genres || []), ...tags],
+    genres: [...new Set([...(m.genres || []), ...tags])],
     image: m.coverImage?.large || "",
     format: (m.format || "").toLowerCase(),
     start: dateKey(m.startDate?.year, m.startDate?.month, m.startDate?.day),
