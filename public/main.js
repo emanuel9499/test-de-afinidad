@@ -28,7 +28,8 @@ const genreWeight = (team, g) => team.core.includes(g) ? CORE_WEIGHT : team.extr
 
 const NO_TEAM_COLOR = '#4a5268';
 const ANIME_PAGE = 24;
-const PLATFORM_NAME = { mal: 'MyAnimeList', anilist: 'AniList' };
+const PLATFORM_NAME = { mal: 'MyAnimeList', anilist: 'AniList', guest: 'Sin cuenta' };
+const MIN_PICKS = 5;
 
 // ════════════════════════════════════════════════════════════════
 // Utilidades
@@ -76,7 +77,10 @@ async function fetchList(platform, username) {
     if (res.status === 429) throw { kind: 'ratelimit', username };
     if (!res.ok) throw { kind: 'server', username };
     const data = await res.json();
-    const list = Array.isArray(data) ? data : (data.animes || data.data || data.list || []);
+    return groupFranchises(parseEntries(Array.isArray(data) ? data : (data.animes || data.data || data.list || []), platform));
+}
+
+function parseEntries(list, platform) {
     return list
         .filter(a => a && Array.isArray(a.genres))
         .map(a => ({
@@ -88,8 +92,40 @@ async function fetchList(platform, username) {
             genres: [...new Set(a.genres.map(g => normalizeGenre(typeof g === 'string' ? g : g?.name)).filter(Boolean))],
             score: Number(a.score ?? a.user_score ?? a.my_score) || 0,
             status: a.status || 'unknown',
+            format: a.format || '',
+            start: a.start || null,
+            franchise: a.franchise || null,
             url: a.url || null
         }));
+}
+
+// ── Franquicias: temporadas, películas, OVAs y specials del mismo anime cuentan UNA vez ──
+const STATUS_RANK = { completed: 5, watching: 4, on_hold: 3, dropped: 2, unknown: 1, planning: 0 };
+const FORMAT_RANK = { tv: 0, ona: 1, tv_short: 2, movie: 3, ova: 4, special: 5, tv_special: 5 };
+
+function groupFranchises(entries) {
+    const groups = new Map();
+    entries.forEach(e => {
+        const k = e.franchise || `${e.plat}:${e.id}`;
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(e);
+    });
+    return [...groups.values()].map(list => {
+        const counted = list.filter(e => e.status !== 'planning');
+        const pool = counted.length ? counted : list;
+        // Entrada principal: la serie (TV) más antigua
+        const rep = [...pool].sort((a, b) =>
+            (FORMAT_RANK[a.format] ?? 6) - (FORMAT_RANK[b.format] ?? 6) ||
+            String(a.start || '9999').localeCompare(String(b.start || '9999')))[0];
+        // Géneros: los de la principal + los que aparecen en al menos la mitad de las entradas
+        const freq = {};
+        pool.forEach(e => e.genres.forEach(g => { freq[g] = (freq[g] || 0) + 1; }));
+        const genres = [...new Set([...rep.genres, ...Object.keys(freq).filter(g => freq[g] >= pool.length / 2)])];
+        const scored = pool.filter(e => e.score > 0);
+        const score = scored.length ? Math.round(scored.reduce((x, e) => x + e.score, 0) / scored.length * 10) / 10 : 0;
+        const status = list.reduce((best, e) => (STATUS_RANK[e.status] ?? 1) > (STATUS_RANK[best] ?? 1) ? e.status : best, 'planning');
+        return { ...rep, genres, score, status, entries: list, count: pool.length };
+    });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -162,6 +198,7 @@ function explain(p, who = null) {
 // ── Comparación ──
 const normTitle = t => String(t).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
 function keysOf(a) {
+    if (a.entries) return a.entries.flatMap(keysOf);
     const k = [];
     if (a.mal_id) k.push('m' + a.mal_id);
     if (a.plat === 'anilist' && a.id) k.push('a' + a.id);
@@ -278,6 +315,7 @@ function animeCard(a, extra = '') {
     const inner = `
         <div class="cover">
             ${a.image ? `<img src="${esc(a.image)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+            ${a.count > 1 ? `<span class="multi" title="${a.count} entradas de la lista (temporadas, películas, etc.)">×${a.count}</span>` : ''}
             ${extra || (a.score > 0 ? `<span class="score">★ ${a.score}</span>` : '')}
         </div>
         <div class="t" title="${esc(a.title)}">${esc(a.title)}</div>`;
@@ -322,7 +360,7 @@ function renderSingle() {
     ${winnerCard(p, 'Tu team es', `<div class="why">${explain(p)}</div>`)}
 
     <div class="stats">
-        <div class="stat"><div class="k">Animes analizados</div><div class="v">${p.animes.length}</div></div>
+        <div class="stat"><div class="k">Animes analizados</div><div class="v">${p.animes.length}</div><div class="sub">${p.animes.reduce((x, a) => x + (a.count || 1), 0)} entradas contando temporadas</div></div>
         <div class="stat"><div class="k">Con géneros de algún team</div><div class="v">${matched}</div></div>
         <div class="stat"><div class="k">Géneros distintos</div><div class="v">${genreTotals(p.animes).length}</div></div>
     </div>
@@ -646,7 +684,11 @@ const fileName = () => current.mode === 'compare'
 // ════════════════════════════════════════════════════════════════
 function shareURL() {
     const q = new URLSearchParams({ user: current.A.username, platform: current.A.platform });
-    if (current.mode === 'compare') { q.set('user2', current.B.username); q.set('platform2', current.B.platform); }
+    if (current.A.platform === 'guest') q.set('picks', encodePicks(1));
+    if (current.mode === 'compare') {
+        q.set('user2', current.B.username); q.set('platform2', current.B.platform);
+        if (current.B.platform === 'guest') q.set('picks2', encodePicks(2));
+    }
     return `${location.origin}${location.pathname}?${q}`;
 }
 
@@ -672,12 +714,21 @@ const compareOn = () => !$('#row2').hidden;
 
 let busy = false;
 async function run() {
-    const u1 = $('#username').value.trim();
+    if (busy) return;
     const p1 = radioVal('platform');
-    const u2 = compareOn() ? $('#username2').value.trim() : '';
     const p2 = radioVal('platform2');
-    if (!u1 || busy) return;
-    if (compareOn() && !u2) { $('#username2').focus(); return; }
+    const cmp = compareOn();
+    const u1 = $('#username').value.trim() || (p1 === 'guest' ? 'Invitado' : '');
+    const u2 = cmp ? ($('#username2').value.trim() || (p2 === 'guest' ? 'Invitado 2' : '')) : '';
+    if (!u1) { $('#username').focus(); return; }
+    if (cmp && !u2) { $('#username2').focus(); return; }
+    for (const [row, plat] of [[1, p1], [2, cmp ? p2 : null]]) {
+        if (plat === 'guest' && picks[row].size < MIN_PICKS) {
+            toast(`Elegí al menos ${MIN_PICKS} animes${cmp ? (row === 1 ? ' para el primer usuario' : ' para el segundo usuario') : ''}`);
+            openPicker(row);
+            return;
+        }
+    }
 
     busy = true;
     const btn = $('#submitBtn');
@@ -687,8 +738,8 @@ async function run() {
     const slowT = setTimeout(() => { const n = $('#slowNote'); if (n) n.hidden = false; }, 7000);
 
     try {
-        const jobs = [fetchList(p1, u1)];
-        if (u2) jobs.push(fetchList(p2, u2));
+        const jobs = [getList(1, p1, u1)];
+        if (u2) jobs.push(getList(2, p2, u2));
         const [l1, l2] = await Promise.all(jobs);
 
         const A = analyze({ username: u1, platform: p1, all: l1 });
@@ -700,8 +751,8 @@ async function run() {
         }
         current = B ? { mode: 'compare', A, B } : { mode: 'single', A };
         render();
-        saveRecent(u1, p1);
-        if (u2) saveRecent(u2, p2);
+        if (p1 !== 'guest') saveRecent(u1, p1);
+        if (u2 && p2 !== 'guest') saveRecent(u2, p2);
         renderRecent();
         history.replaceState(null, '', shareURL().replace(location.origin, ''));
     } catch (err) {
@@ -723,6 +774,136 @@ function setCompare(on) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// Sin cuenta: elegir animes de una grilla de populares + búsqueda
+// ════════════════════════════════════════════════════════════════
+const picks = { 1: new Map(), 2: new Map() };   // id → { level: 1 (visto) | 2 (favorito), title, image }
+let pickRow = 1;
+let popular = null;
+
+function getList(row, platform, username) {
+    return platform === 'guest' ? fetchGuest(row) : fetchList(platform, username);
+}
+
+async function fetchGuest(row) {
+    const ids = [...picks[row].keys()];
+    let res;
+    try { res = await fetch(`/api/media?ids=${ids.join(',')}`); } catch { throw { kind: 'network' }; }
+    if (res.status === 429) throw { kind: 'ratelimit' };
+    if (!res.ok) throw { kind: 'server' };
+    const data = await res.json();
+    data.forEach(m => {
+        const p = picks[row].get(m.id);
+        if (p) { m.score = p.level === 2 ? 10 : 0; if (!p.title) { p.title = m.title_en || m.title; p.image = m.image; } }
+    });
+    return groupFranchises(parseEntries(data, 'anilist'));
+}
+
+const encodePicks = row => [...picks[row]].map(([id, p]) => (p.level === 2 ? '*' : '') + id).join('.');
+function decodePicks(row, str) {
+    picks[row].clear();
+    String(str || '').split('.').forEach(tok => {
+        const fav = tok.startsWith('*');
+        const id = parseInt(fav ? tok.slice(1) : tok);
+        if (id > 0) picks[row].set(id, { level: fav ? 2 : 1, title: '', image: '' });
+    });
+}
+
+// Ajusta la fila según la plataforma elegida
+function syncRow(row) {
+    const plat = radioVal(row === 1 ? 'platform' : 'platform2');
+    const input = $(row === 1 ? '#username' : '#username2');
+    const btn = $('#pickBtn' + row);
+    const guest = plat === 'guest';
+    input.placeholder = guest ? (row === 1 ? 'Tu nombre (opcional)' : 'Su nombre (opcional)') : (row === 1 ? 'Tu username' : 'Username a comparar');
+    btn.hidden = !guest;
+    const n = picks[row].size;
+    btn.textContent = n ? `Elegir animes (${n})` : 'Elegir animes';
+    btn.classList.toggle('has', n > 0);
+}
+
+async function openPicker(row) {
+    pickRow = row;
+    $('#pickSearch').value = '';
+    $('#pickModal').hidden = false;
+    updatePickCount();
+    if (!popular) {
+        $('#pickGrid').innerHTML = '<p class="picker-section">Cargando populares…</p>';
+        try {
+            const r = await fetch('/api/popular');
+            popular = r.ok ? await r.json() : [];
+        } catch { popular = []; }
+    }
+    drawPicker(null);
+}
+
+function pickCard(m) {
+    const p = picks[pickRow].get(m.id);
+    const lvl = p ? p.level : 0;
+    return `<button type="button" class="pcard l${lvl}" data-id="${m.id}" data-title="${esc(m.title)}" data-image="${esc(m.image)}">
+        <div class="cover">${m.image ? `<img src="${esc(m.image)}" alt="" loading="lazy">` : ''}<span class="mark">${lvl === 2 ? '❤' : '✓'}</span></div>
+        <div class="t">${esc(m.title)}${m.year ? ` <span style="color:var(--dim)">(${m.year})</span>` : ''}</div>
+    </button>`;
+}
+
+function drawPicker(results) {
+    const grid = $('#pickGrid');
+    if (results) {
+        grid.innerHTML = results.length
+            ? `<div class="picker-section">Resultados</div>${results.map(pickCard).join('')}`
+            : '<p class="picker-section">Sin resultados</p>';
+        return;
+    }
+    const popIds = new Set((popular || []).map(m => m.id));
+    const extra = [...picks[pickRow]].filter(([id]) => !popIds.has(id)).map(([id, p]) => ({ id, title: p.title || 'Anime #' + id, image: p.image }));
+    grid.innerHTML =
+        (extra.length ? `<div class="picker-section">Agregados por vos</div>${extra.map(pickCard).join('')}` : '') +
+        `<div class="picker-section">Populares</div>${(popular || []).map(pickCard).join('')}`;
+}
+
+function updatePickCount() {
+    const list = [...picks[pickRow].values()];
+    const fav = list.filter(p => p.level === 2).length;
+    $('#pickCount').textContent = `${list.length} elegido${list.length === 1 ? '' : 's'}${fav ? ` · ${fav} ❤` : ''}${list.length < MIN_PICKS ? ` (mínimo ${MIN_PICKS})` : ''}`;
+}
+
+$('#pickGrid').addEventListener('click', e => {
+    const card = e.target.closest('.pcard');
+    if (!card) return;
+    const id = +card.dataset.id;
+    const map = picks[pickRow];
+    const lvl = ((map.get(id)?.level || 0) + 1) % 3;
+    if (lvl === 0) map.delete(id);
+    else map.set(id, { level: lvl, title: card.dataset.title, image: card.dataset.image });
+    card.className = `pcard l${lvl}`;
+    card.querySelector('.mark').textContent = lvl === 2 ? '❤' : '✓';
+    updatePickCount();
+});
+
+let searchT = null, searchSeq = 0;
+$('#pickSearch').addEventListener('input', e => {
+    clearTimeout(searchT);
+    const q = e.target.value.trim();
+    if (q.length < 2) { drawPicker(null); return; }
+    searchT = setTimeout(async () => {
+        const seq = ++searchSeq;
+        try {
+            const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+            const list = r.ok ? await r.json() : [];
+            if (seq === searchSeq) drawPicker(list);
+        } catch { if (seq === searchSeq) drawPicker([]); }
+    }, 400);
+});
+$('#pickSearch').addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+
+const closePicker = () => { $('#pickModal').hidden = true; syncRow(1); syncRow(2); };
+$('#pickDone').addEventListener('click', closePicker);
+$('#pickClear').addEventListener('click', () => { picks[pickRow].clear(); updatePickCount(); drawPicker(null); });
+$('#pickModal').addEventListener('click', e => { if (e.target.id === 'pickModal') closePicker(); });
+document.querySelectorAll('.pick-btn').forEach(b => b.addEventListener('click', () => openPicker(+b.dataset.row)));
+document.querySelectorAll('input[name=platform], input[name=platform2]').forEach(r =>
+    r.addEventListener('change', () => { syncRow(1); syncRow(2); }));
+
+// ════════════════════════════════════════════════════════════════
 // Eventos
 // ════════════════════════════════════════════════════════════════
 $('#form').addEventListener('submit', e => { e.preventDefault(); run(); });
@@ -737,10 +918,10 @@ $('#recent').addEventListener('click', e => {
     const b = e.target.closest('button[data-u]');
     if (!b) return;
     if (compareOn() && $('#username').value.trim() && !$('#username2').value.trim()) {
-        $('#username2').value = b.dataset.u; setRadio('platform2', b.dataset.p);
+        $('#username2').value = b.dataset.u; setRadio('platform2', b.dataset.p); syncRow(2);
         $('#username2').focus();
     } else {
-        $('#username').value = b.dataset.u; setRadio('platform', b.dataset.p);
+        $('#username').value = b.dataset.u; setRadio('platform', b.dataset.p); syncRow(1);
         if (!compareOn()) run();
     }
 });
@@ -777,7 +958,7 @@ output.addEventListener('change', e => {
 const closeModal = () => { $('#imgModal').hidden = true; };
 $('#imgClose').addEventListener('click', closeModal);
 $('#imgModal').addEventListener('click', e => { if (e.target.id === 'imgModal') closeModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); if (!$('#pickModal').hidden) closePicker(); } });
 $('#imgDownload').addEventListener('click', () => {
     const a = document.createElement('a');
     a.href = imgURL; a.download = fileName(); a.click();
@@ -794,16 +975,20 @@ $('#imgShare').addEventListener('click', async () => {
 // Inicio: restaurar plataforma / leer link compartido
 // ════════════════════════════════════════════════════════════════
 const params = new URLSearchParams(location.search);
+const VALID = ['mal', 'anilist', 'guest'];
 const pf = params.get('platform') || store.get('AF_platform');
-if (pf === 'mal' || pf === 'anilist') setRadio('platform', pf);
+if (VALID.includes(pf)) setRadio('platform', pf);
+if (params.get('picks')) decodePicks(1, params.get('picks'));
+if (params.get('picks2')) decodePicks(2, params.get('picks2'));
 renderRecent();
+syncRow(1); syncRow(2);
 if (params.get('user')) {
     $('#username').value = params.get('user');
     if (params.get('user2')) {
         setCompare(true);
         $('#username2').value = params.get('user2');
         const pf2 = params.get('platform2');
-        if (pf2 === 'mal' || pf2 === 'anilist') setRadio('platform2', pf2);
+        if (VALID.includes(pf2)) setRadio('platform2', pf2);
     }
     run();
 } else {

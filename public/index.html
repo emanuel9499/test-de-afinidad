@@ -297,6 +297,38 @@ h2.section small { font-weight: 400; color: var(--dim); font-size: .85em; }
 .mactions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .mactions .btn { flex: 1; height: 40px; }
 
+/* Franquicias */
+.multi { position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 6px; font-size: .7em; font-weight: 700; background: rgba(13,16,24,.88); color: #c8d6ff; }
+.stat .sub { font-size: .75em; color: var(--dim); }
+
+/* Sin cuenta */
+.pick-btn { background: var(--surface2); border: 1px solid rgba(255,165,61,.5); color: #ffd9b0; }
+.pick-btn:hover { background: var(--surface3); }
+.pick-btn.has { background: rgba(255,165,61,.15); }
+.modal.picker { width: min(940px, 100%); height: min(90vh, 900px); display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.picker-head { padding: 18px 18px 12px; border-bottom: 1px solid var(--line); }
+.picker-head h2 { margin: 0 0 4px; font-size: 1.2em; }
+.picker-head p { margin: 0 0 12px; color: var(--muted); font-size: .88em; }
+.picker-head .ok { color: #8ff0c4; }
+.picker-head .fav { color: #ff9cc8; }
+.picker-head .user-input { width: 100%; }
+.picker-grid { flex: 1; overflow-y: auto; padding: 14px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; align-content: start; }
+.pcard { background: none; border: none; padding: 0; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 6px; color: inherit; }
+.pcard .cover { position: relative; aspect-ratio: 2 / 2.85; border-radius: 10px; overflow: hidden; background: var(--surface3); border: 2px solid transparent; transition: border-color .15s, transform .15s; }
+.pcard img { width: 100%; height: 100%; object-fit: cover; display: block; transition: filter .15s; }
+.pcard:hover .cover { transform: translateY(-2px); }
+.pcard .t { font-size: .78em; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: #dfe4ef; }
+.pcard .mark { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; display: none; place-items: center; font-weight: 800; font-size: .95em; }
+.pcard.l1 .cover { border-color: #4fdc9c; }
+.pcard.l1 .mark { display: grid; background: #4fdc9c; color: #062a1a; }
+.pcard.l2 .cover { border-color: #ff6fae; }
+.pcard.l2 .mark { display: grid; background: #ff6fae; color: #3a0620; }
+.pcard.l0 img { filter: none; }
+.picker-section { grid-column: 1 / -1; font-size: .8em; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 4px; }
+.picker-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.picker-foot #pickCount { color: var(--text); font-weight: 600; }
+.picker-foot .btn { height: 40px; }
+
 footer { text-align: center; color: var(--dim); font-size: .78em; margin-top: 40px; }
 
 @media (max-width: 600px) {
@@ -319,6 +351,9 @@ footer { text-align: center; color: var(--dim); font-size: .78em; margin-top: 40
     .gcmp-head, .gcmp-row { grid-template-columns: 34px 1fr 84px 1fr 34px; gap: 6px; }
     .dual-bar { grid-template-columns: 80px 1fr 40px; }
     .user-row .platforms { width: 100%; }
+    .platforms span { padding: 0 8px; font-size: .85em; }
+    .picker-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; padding: 12px; }
+    .modal.picker { height: 94vh; }
     .form-foot .btn.primary { width: 100%; }
     .anime-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
 }
@@ -337,8 +372,10 @@ footer { text-align: center; color: var(--dim); font-size: .78em; margin-top: 40
             <div class="platforms" role="radiogroup" aria-label="Plataforma">
                 <label><input type="radio" name="platform" value="mal" checked><span>MyAnimeList</span></label>
                 <label><input type="radio" name="platform" value="anilist"><span>AniList</span></label>
+                <label><input type="radio" name="platform" value="guest"><span>Sin cuenta</span></label>
             </div>
-            <input class="user-input" id="username" type="text" placeholder="Tu username" spellcheck="false" required>
+            <input class="user-input" id="username" type="text" placeholder="Tu username" spellcheck="false">
+            <button class="btn pick-btn" id="pickBtn1" type="button" data-row="1" hidden>Elegir animes</button>
         </div>
         <div id="row2" hidden>
             <div class="vs-tag">VS</div>
@@ -346,8 +383,10 @@ footer { text-align: center; color: var(--dim); font-size: .78em; margin-top: 40
                 <div class="platforms" role="radiogroup" aria-label="Plataforma del segundo usuario">
                     <label><input type="radio" name="platform2" value="mal" checked><span>MyAnimeList</span></label>
                     <label><input type="radio" name="platform2" value="anilist"><span>AniList</span></label>
+                <label><input type="radio" name="platform2" value="guest"><span>Sin cuenta</span></label>
                 </div>
                 <input class="user-input" id="username2" type="text" placeholder="Username a comparar" spellcheck="false">
+                <button class="btn pick-btn" id="pickBtn2" type="button" data-row="2" hidden>Elegir animes</button>
                 <button class="icon-btn" id="removeRow2" type="button" title="Quitar comparación">✕</button>
             </div>
         </div>
@@ -360,10 +399,27 @@ footer { text-align: center; color: var(--dim); font-size: .78em; margin-top: 40
 
     <div id="output"></div>
 
-    <footer>Se analizan los animes vistos, en curso y en pausa de tu lista (los planeados no cuentan).</footer>
+    <footer>Se analizan los animes vistos, en curso y en pausa (los planeados no cuentan). Las temporadas, películas y OVAs de un mismo anime cuentan una sola vez.</footer>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="pickModal" hidden>
+    <div class="modal picker" role="dialog" aria-labelledby="pickTitle">
+        <div class="picker-head">
+            <h2 id="pickTitle">¿Qué animes viste?</h2>
+            <p>Tocá una vez = <b class="ok">✓ lo vi</b> · dos veces = <b class="fav">❤ me encantó</b> · tres = quitar</p>
+            <input class="user-input" id="pickSearch" type="search" placeholder="Buscar otro anime…" autocomplete="off">
+        </div>
+        <div class="picker-grid" id="pickGrid"></div>
+        <div class="picker-foot">
+            <span id="pickCount">0 elegidos</span>
+            <span style="flex:1"></span>
+            <button class="btn ghost" id="pickClear" type="button">Borrar todo</button>
+            <button class="btn primary" id="pickDone" type="button">Listo</button>
+        </div>
+    </div>
+</div>
 
 <div class="modal-bg" id="imgModal" hidden>
     <div class="modal">
